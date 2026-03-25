@@ -1,0 +1,55 @@
+name: Build DIE-engine macOS ARM64
+
+on:
+  workflow_dispatch:
+  release:
+    types: [created]
+  schedule:
+    - cron: '0 0 * * *'
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+env:
+  SRC_PATH: ${{ github.workspace }}/src
+  RELEASE_PATH: ${{ github.workspace }}/src/release
+
+# the jobs are based on these notes:
+# https://github.com/horsicq/Detect-It-Easy/blob/master/docs/BUILD.md
+jobs:
+  build-macos-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+          path: ${{ env.SRC_PATH }}
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          host: 'mac'
+          target: 'desktop'
+          arch: 'clang_64'
+          dir: ${{ github.workspace }}
+          modules: qt5compat
+
+      - name: Build
+        working-directory: ${{ env.SRC_PATH }}
+        run: |
+          bash -x build_mac_arm64.sh
+
+      - name: Upload Release as Download
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          tag_name: Beta
+          draft: false
+          prerelease: true
+          files: |
+            ${{ env.RELEASE_PATH }}/*.zip
